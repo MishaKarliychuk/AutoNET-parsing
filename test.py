@@ -76,6 +76,9 @@ async def get_cars(url):
     #---------------
 
     car_name = car_object.find('div', class_='GO-Results-Naziv bg-dark px-3 py-2 font-weight-bold text-truncate text-white text-decoration-none').get_text(strip=True)
+    if 'Š' in car_name:
+        car_name = car_name.replace('Š', 'S')
+
     car_minor_data_object = car_object.find('div', class_='GO-Results-Data-Top')
     car_year, car_mileage = car_minor_data_object.findAll('tr')[0].findAll('td')[1].get_text(strip=True), car_minor_data_object.findAll('tr')[1].findAll('td')[1].get_text(strip=True)
     car_price = car_object.find('div', class_='GO-Results-Price-Mid').get_text(strip=True)
