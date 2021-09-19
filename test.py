@@ -62,33 +62,41 @@ async def get_cars(url):
 
     soup = bs4(res.content, 'html.parser')
 
+    data = False
+
     # Достаем обекты машин, где находится много инфы
-    car_object = soup.find('div', class_='row bg-white position-relative GO-Results-Row GO-Shadow-B')
-    car_link = 'https://www.avto.net/' + str(car_object.find('a', class_='stretched-link').get('href'))[3::]
+    cars_object = soup.findAll('div', class_='row bg-white position-relative GO-Results-Row GO-Shadow-B')
+
+
+    for car_object in cars_object[:20:]:
+
+        car_link = 'https://www.avto.net/' + str(car_object.find('a', class_='stretched-link').get('href'))[3::]
+
+        # Если такая машина есть в базе, то продолжаем перебирать цикл
+        print(car_link)
+        if select_car_one(car_link):
+            continue
+
+        #---------------
+
+        car_name = car_object.find('div', class_='GO-Results-Naziv bg-dark px-3 py-2 font-weight-bold text-truncate text-white text-decoration-none').get_text(strip=True)
+        if 'Š' in car_name:
+            car_name = car_name.replace('Š', 'S')
+
+        car_minor_data_object = car_object.find('div', class_='GO-Results-Data-Top')
+        car_year, car_mileage = car_minor_data_object.findAll('tr')[0].findAll('td')[1].get_text(strip=True), car_minor_data_object.findAll('tr')[1].findAll('td')[1].get_text(strip=True)
+        car_price = car_object.find('div', class_='GO-Results-Price-Mid').get_text(strip=True)
+
+        insert_car(car_link)
+
+        # Будет находится все данные в нужном ввиде. Для отправки смс в телеграм
+        data = f"<b>{car_name}</b>\nСсылка: {car_link}\n<b>Цена:{car_price}</b>\nДоп. данные\n{car_year}|{car_mileage}"
+        break
+
+    print(data)
 
     print("--- %s ВРЕМЯ НА ЗАПРОС---" % (time.time() - start_time))
 
-    # Если такая машина есть в базе, то продолжаем перебирать цикл
-    print(car_link)
-    if select_car_one(car_link):
-        return False
-
-    #---------------
-
-    car_name = car_object.find('div', class_='GO-Results-Naziv bg-dark px-3 py-2 font-weight-bold text-truncate text-white text-decoration-none').get_text(strip=True)
-    if 'Š' in car_name:
-        car_name = car_name.replace('Š', 'S')
-
-    car_minor_data_object = car_object.find('div', class_='GO-Results-Data-Top')
-    car_year, car_mileage = car_minor_data_object.findAll('tr')[0].findAll('td')[1].get_text(strip=True), car_minor_data_object.findAll('tr')[1].findAll('td')[1].get_text(strip=True)
-    car_price = car_object.find('div', class_='GO-Results-Price-Mid').get_text(strip=True)
-
-    insert_car(car_link)
-
-    # Будет находится все данные в нужном ввиде. Для отправки смс в телеграм
-    data = f"<b>{car_name}</b>\nСсылка: {car_link}\n<b>Цена:{car_price}</b>\nДоп. данные\n{car_year}|{car_mileage}"
-
-    print(data)
     return data
 
 @dp.message_handler(commands=['start'])
