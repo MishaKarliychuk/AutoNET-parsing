@@ -62,7 +62,6 @@ async def get_cars(url):
 
     soup = bs4(res.content, 'html.parser')
 
-    # Будет находится все данные в нужном ввиде. Для отправки смс в телеграм
     data = []
 
     # Достаем обекты машин, где находится много инфы
@@ -84,7 +83,9 @@ async def get_cars(url):
     car_price = car_object.find('div', class_='GO-Results-Price-Mid').get_text(strip=True)
 
     insert_car(car_link)
-    data.append(f"<b>{car_name}</b>\nСсылка: {car_link}\n<b>Цена:{car_price}</b>\nДоп. данные\n{car_year}|{car_mileage}")
+
+    # Будет находится все данные в нужном ввиде. Для отправки смс в телеграм
+    data = f"<b>{car_name}</b>\nСсылка: {car_link}\n<b>Цена:{car_price}</b>\nДоп. данные\n{car_year}|{car_mileage}"
 
     print(data)
     return data
@@ -116,7 +117,7 @@ async def mmm(message: types.Message):
         try:
             time_sleep_from_hour = 0 # Время(от) когда программе поменять режим мониторинга(раз в 1 часа)
             time_sleep_to_hour = 7 # Время(до) когда программе поменять режим мониторинга(раз в 3 сек)
-            time_to_sleep_in_another_regime = 30*60 # к-во сек спать, когда включен режим другой(ночью)
+            time_to_sleep_in_another_regime = 30 # к-во сек спать, когда включен режим другой(ночью)
 
             while True:
                 """ Цикл бесконечного мониторинга"""
@@ -128,14 +129,14 @@ async def mmm(message: types.Message):
                     Set.status_ind = True
                     break
 
-                # Данные о машинах
+                # Данные о машине
                 data = await get_cars(Set.link)
                 # Если внутри data нету инфы, то продолжаем поиск
                 if not data:
                     continue
 
                 # Готовое смс
-                full_text_data = '\n\n'.join(data)
+                full_text_data = data
                 await bot.send_message(-1001522788683, full_text_data, parse_mode='html', disable_web_page_preview=True)
 
 
