@@ -62,8 +62,6 @@ async def get_cars(url):
 
     soup = bs4(res.content, 'html.parser')
 
-    data = []
-
     # Достаем обекты машин, где находится много инфы
     car_object = soup.find('div', class_='row bg-white position-relative GO-Results-Row GO-Shadow-B')
     car_link = 'https://www.avto.net/' + str(car_object.find('a', class_='stretched-link').get('href'))[3::]
