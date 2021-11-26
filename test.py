@@ -1,30 +1,23 @@
-import requests
-from bs4 import BeautifulSoup as bs4
-
-
+import datetime
 # Телеграм бот
 import logging
+import os
+# Доп. библиотеки
+import time
+
+import pytz
+import requests
+import aiogram
 from aiogram import Bot, Dispatcher, executor, types
-from aiogram.types.callback_query import CallbackQuery
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
-
-
-# Доп. библиотеки
-import time
-import asyncio
-import os
-import datetime
-import pytz
+from bs4 import BeautifulSoup as bs4
 
 # Иморт с файлов
 from db import *
-import shutil
 
-import requests
-
-api = '2032151564:AAHYo7Dmpa801Pu3MNlTCLHG1xfTm_VT5Lo'		# ТОКЕН ТЕЛЕГРАМ БОТА
+api = '#'		# ТОКЕН ТЕЛЕГРАМ БОТА
 
 logging.basicConfig(level=logging.INFO)
 
@@ -32,6 +25,18 @@ logging.basicConfig(level=logging.INFO)
 bot = Bot(token=api)                     # данные заменить
 storage = MemoryStorage()
 dp = Dispatcher(bot,storage=storage)
+
+ADMINS = [1526525522, 649640987, 1876048525, 1838935282]
+
+async def send_all_users(message_text):
+    # users = select_all_user()
+    for user in ADMINS:
+        try:
+            await bot.send_message(user, message_text, parse_mode='html', disable_web_page_preview=True)
+        except aiogram.utils.exceptions.ChatNotFound:
+            pass
+
+
 
 class NewLink(StatesGroup):
     link = State()
@@ -50,19 +55,19 @@ async def get_cars(url):
     start_time = time.time()
 
     headers = {
-        'Accept-Encoding': 'gzip, deflate, sdch',
-        'Accept-Language': 'en-US,en;q=0.8',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Accept-Language': 'uk-UA,uk;q=0.9,ru;q=0.8,en-US;q=0.7,en;q=0.6',
         'Upgrade-Insecure-Requests': '1',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Safari/537.36",
+        'Cookie': 'datadome=Q~1.zwLkYl~nBgZlfdFVFPUwUbjuUIQ0vt2LCFebT8KO9M~ejgN.1litYpHuPtkFAZsxQT1yAe3N_YixP7J7ISsugDTWGBi.4YZRfunB4MIrzmtXCRrrwP0dzZOS2yo; ogledov=',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
         'Cache-Control': 'max-age=0',
         'Connection': 'keep-alive',
     }
     res = requests.get(url, headers=headers)
 
     soup = bs4(res.content, 'html.parser')
-
-    data = False
+    data = []
 
     # Достаем обекты машин, где находится много инфы
     cars_object = soup.findAll('div', class_='row bg-white position-relative GO-Results-Row GO-Shadow-B')
@@ -89,11 +94,31 @@ async def get_cars(url):
 
         insert_car(car_link)
 
-        # Будет находится все данные в нужном ввиде. Для отправки смс в телеграм
-        data = f"<b>{car_name}</b>\nСсылка: {car_link}\n<b>Цена:{car_price}</b>\nДоп. данные\n{car_year}|{car_mileage}"
-        break
 
-    print(data)
+        """#Делаем запрос на страницу, чтобы получить номер телефона и к-во дверей в машине"""
+        res = requests.get(car_link, headers=headers)
+        soup = bs4(res.content, 'html.parser')
+
+        # Достаем к-во дверей
+        odd_data_all = soup.find('table', class_='table table-sm').findAll('tr')
+        count_doors = ""
+        location = ""
+        for odd_data in odd_data_all:
+            if 'Št.vrat:' in str(odd_data):
+                count_doors = odd_data.find('td').get_text(strip=True)
+            elif 'Kraj ogleda:' in str(odd_data):
+                location = odd_data.find('td').get_text(strip=True)
+
+        #Достаем телефон
+        phone_all = soup.find('ul', class_='list-group list-group-flush bg-white p-0 pb-1 GO-Rounded-B text-center').find('a')
+        # phone_data = []
+        phone_data = phone_all.get('href')[4::]
+        #for phone in phone_all:
+            #phone_data.append(str(phone.get('href'))[4::])
+
+        # Будет находится все данные в нужном ввиде. Для отправки смс в телеграм
+        data.append(f"<b>👉<a href='{car_link}'>{car_name}</a>👈</b>\n<b>Цена:{car_price}</b>\nЛокация: {location}\nТел: {phone_data}\nДоп. данные\n{car_year}|{car_mileage}|{count_doors}")
+
 
     print("--- %s ВРЕМЯ НА ЗАПРОС---" % (time.time() - start_time))
 
@@ -101,6 +126,10 @@ async def get_cars(url):
 
 @dp.message_handler(commands=['start'])
 async def mmm(message: types.Message):
+    if select_one_user(message.chat.id):
+        return
+    # insert_user(message.chat.id)
+    await message.answer("Я отправлю новую машину, когда она появится🚗")
     print(message.chat.id)
 
 # простое смс
@@ -123,47 +152,47 @@ async def mmm(message: types.Message):
         await message.answer('Начато')
         Set.status = False
         Set.status_ind = True
-        try:
-            time_sleep_from_hour = 0 # Время(от) когда программе поменять режим мониторинга(раз в 1 часа)
-            time_sleep_to_hour = 7 # Время(до) когда программе поменять режим мониторинга(раз в 3 сек)
-            time_to_sleep_in_another_regime = 30 # к-во сек спать, когда включен режим другой(ночью)
+        time_sleep_from_hour = 0 # Время(от) когда программе поменять режим мониторинга(раз в 1 часа)
+        time_sleep_to_hour = 7 # Время(до) когда программе поменять режим мониторинга(раз в 3 сек)
+        time_to_sleep_in_another_regime = 30 # к-во сек спать, когда включен режим другой(ночью)
 
-            while True:
-                """ Цикл бесконечного мониторинга"""
+        while True:
+            """ Цикл бесконечного мониторинга"""
 
-                start_time = time.time()
+            start_time = time.time()
 
-                # Если остановили мониторинг с помощью команды Stop
-                if not Set.status_ind:
-                    Set.status_ind = True
-                    break
+            # Если остановили мониторинг с помощью команды Stop
+            if not Set.status_ind:
+                Set.status_ind = True
+                break
 
-                # Данные о машине
-                data = await get_cars(Set.link)
-                # Если внутри data нету инфы, то продолжаем поиск
-                if not data:
-                    continue
+            # Данные о машине
+            data = await get_cars(Set.link)
+            # Если внутри data нету инфы, то продолжаем поиск
+            if not data:
+                continue
 
-                # Готовое смс
-                full_text_data = data
-                await bot.send_message(-1001522788683, full_text_data, parse_mode='html', disable_web_page_preview=True)
+            # Готовое смс
+            full_text_data = '\n\n'.join(data)
+            await send_all_users(full_text_data)
+            # await bot.send_message(-1001522788683, full_text_data, parse_mode='html', disable_web_page_preview=True)
+            # Если спарсили больше 5 машин подряд, то делаем перерыв
+            if len(data) > 5:
+                await asyncio.sleep(10)
 
 
-                # Получаем текущее время
-                country_time = pytz.timezone('Europe/Kiev')
-                now = datetime.datetime.now(tz=country_time)
-                print(now)
+            # Получаем текущее время
+            country_time = pytz.timezone('Europe/Kiev')
+            now = datetime.datetime.now(tz=country_time)
+            print(now)
 
-                # Если тек. время между в [от 00:00 к 7:00], то меняем режим(раз в 3 часа)
-                if now.hour > time_sleep_from_hour and now.hour < time_sleep_to_hour:
-                    # Спим нужное время (+-30 мин)
-                    await asyncio.sleep(time_to_sleep_in_another_regime)
+            # Если тек. время между в [от 00:00 к 7:00], то меняем режим(раз в 3 часа)
+            if now.hour > time_sleep_from_hour and now.hour < time_sleep_to_hour:
+                # Спим нужное время (+-30 мин)
+                await asyncio.sleep(time_to_sleep_in_another_regime)
 
-                print("--- %s ВРЕМЯ НА ПРОХОД ЦИКЛА---" % (time.time() - start_time))
+            print("--- %s ВРЕМЯ НА ПРОХОД ЦИКЛА---" % (time.time() - start_time))
 
-        except Exception as e:
-            print(e)
-            await bot.send_message(1526525522, 'I have fallen. (cars)')
 
     elif message.text == 'Stop':
         Set.status = True
