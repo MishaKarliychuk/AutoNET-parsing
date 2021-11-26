@@ -16,6 +16,11 @@ def init_db(force: bool = False):
         id INTEGER PRIMARY KEY,
         name TEXT
     )""")
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS users(
+            id INTEGER PRIMARY KEY,
+            user_id INT
+        )""")
     conn.commit()
 
 init_db()
@@ -33,28 +38,38 @@ def update_days_left(id,info):
 
 
 
-
-# шаблон для добавить
 def insert_car(name):
     conn = get_connection()
     c = conn.cursor()
     c.execute(f'INSERT INTO cars (name) VALUES ("{name}")')
     conn.commit()
 
-# шаблон для взять
 def select_car_one(name):
     conn = get_connection()
     c = conn.cursor()
     c.execute(f'SELECT * FROM cars WHERE name="{name}"')
-    return c.fetchone() # fetchall
+    return c.fetchone()
 
-def select_user_all():
+def select_all_user():
+    """Достает всех пользователей"""
     conn = get_connection()
     c = conn.cursor()
-    c.execute('SELECT * FROM cars')
+    c.execute('SELECT * FROM users')
     return c.fetchall()
 
-# шаблон для удалить
+def insert_user(user_id):
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute(f'INSERT INTO users (user_id) VALUES ({user_id})')
+    conn.commit()
+
+def select_one_user(user_id):
+    """Достает одного пользователя"""
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute(f'SELECT * FROM users WHERE user_id={user_id}')
+    return c.fetchone()
+
 async def delete(id):
     conn = get_connection()
     c = conn.cursor()
